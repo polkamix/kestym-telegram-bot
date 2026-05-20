@@ -6,9 +6,11 @@ const app = express();
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
+
 const SHEET_ID = process.env.SHEET_ID;
 
-const GOOGLE_CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
+const GOOGLE_CLIENT_EMAIL =
+  process.env.GOOGLE_CLIENT_EMAIL;
 
 const GOOGLE_PRIVATE_KEY =
   process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
@@ -17,7 +19,9 @@ const bot = new Telegraf(BOT_TOKEN);
 
 const userState = new Map();
 
-async function addToSheet(row) {
+/* запись в таблицу */
+
+async function addToSheet(row){
 
   const auth = new google.auth.JWT(
     GOOGLE_CLIENT_EMAIL,
@@ -27,45 +31,65 @@ async function addToSheet(row) {
   );
 
   const sheets = google.sheets({
-    version: 'v4',
+    version:'v4',
     auth
   });
 
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID,
-    range: 'A:F',
-    valueInputOption: 'USER_ENTERED',
-    requestBody: {
-      values: [row]
+
+    spreadsheetId:SHEET_ID,
+
+    range:'A:F',
+
+    valueInputOption:'USER_ENTERED',
+
+    requestBody:{
+      values:[row]
     }
+
   });
+
 }
 
-bot.start(async (ctx) => {
+/* старт */
+
+bot.start(async(ctx)=>{
 
   const chatId = ctx.chat.id;
 
-  userState.set(chatId, {
-    step: 'waiting_name'
+  userState.set(chatId,{
+
+    step:'waiting_name'
+
   });
 
   await ctx.reply(
-    'Кестым принял вашу весточку.\n\nКак вас зовут?'
+
+`Рады, что Вы приняли нашу весточку!
+
+Назовите ваше имя`
+
   );
+
 });
 
-bot.on('text', async (ctx) => {
+/* сообщения */
+
+bot.on('text', async(ctx)=>{
 
   const chatId = ctx.chat.id;
-  const text = ctx.message.text.trim();
 
-  if (text.startsWith('/start')) {
+  const text =
+    ctx.message.text.trim();
+
+  if(text.startsWith('/start')){
     return;
   }
 
-  const state = userState.get(chatId);
+  const state =
+    userState.get(chatId);
 
-  if (!state) {
+  if(!state){
 
     await ctx.reply(
       'Чтобы начать запись, нажмите /start'
@@ -74,69 +98,122 @@ bot.on('text', async (ctx) => {
     return;
   }
 
-  if (state.step === 'waiting_name') {
+  /* имя */
+
+  if(state.step === 'waiting_name'){
 
     state.name = text;
-    state.step = 'waiting_count';
 
-    userState.set(chatId, state);
+    state.step =
+      'waiting_count';
+
+    userState.set(
+      chatId,
+      state
+    );
 
     await ctx.reply(
-      'Сколько человек придёт?'
+      'Укажите количество человек'
     );
 
     return;
   }
 
-  if (state.step === 'waiting_count') {
+  /* количество */
+
+  if(state.step === 'waiting_count'){
 
     const username =
       ctx.from.username
-        ? '@' + ctx.from.username
-        : '';
+      ? '@'+ctx.from.username
+      : '';
 
     const fullName =
-      [ctx.from.first_name, ctx.from.last_name]
-        .filter(Boolean)
-        .join(' ');
+      [
+        ctx.from.first_name,
+        ctx.from.last_name
+      ]
+      .filter(Boolean)
+      .join(' ');
 
     await addToSheet([
-      new Date().toLocaleString('ru-RU'),
+
+      new Date()
+      .toLocaleString('ru-RU'),
+
       username,
+
       fullName,
+
       state.name,
+
       text,
+
       'Приду'
+
     ]);
 
     userState.delete(chatId);
 
     await ctx.reply(
-      'Запись сохранена.\n\n28 мая.\nКинотеатр «Мир».\nНе опаздывайте.'
+
+`Запись внесена!
+
+Ждем вас в кинотеатре «Мир»
+28 мая в 17:30
+
+Купить билетик можно <a href="https://kinoteatr-mir.ru/release/10076980?date=2026-05-28">по ссылке</a>`,
+
+{
+  parse_mode:'HTML'
+}
+
     );
 
     return;
   }
+
 });
 
-app.use(bot.webhookCallback('/telegram'));
+/* webhook */
 
-app.get('/', (req, res) => {
-  res.send('Kestym bot is alive.');
+app.use(
+  bot.webhookCallback(
+    '/telegram'
+  )
+);
+
+app.get('/',(req,res)=>{
+
+  res.send(
+    'Kestym bot is alive.'
+  );
+
 });
 
-const PORT = process.env.PORT || 3000;
+/* запуск */
 
-app.listen(PORT, async () => {
+const PORT =
+  process.env.PORT || 3000;
 
-  console.log(`Bot running on ${PORT}`);
+app.listen(PORT, async()=>{
 
-  if (WEBHOOK_URL) {
+  console.log(
+    `Bot running on ${PORT}`
+  );
+
+  if(WEBHOOK_URL){
 
     await bot.telegram.setWebhook(
+
       `${WEBHOOK_URL}/telegram`
+
     );
 
-    console.log('Webhook connected');
+    console.log(
+      'Webhook connected'
+    );
+
   }
+
 });
